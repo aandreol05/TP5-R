@@ -145,3 +145,36 @@ unique(meteo$station)
 ```
 
 - **a & b.** Le jeu `meteo` comporte **`r nrow(meteo)` lignes** et **`r ncol(meteo)` colonnes**. La colonne `date` est bien de classe `Date` (couvrant la période du **`r min(meteo$date, na.rm = TRUE)`** au **`r max(meteo$date, na.rm = TRUE)`**), les variables météorologiques sont numériques (`double`), et les **`r length(unique(meteo$station))` stations** (`r paste(unique(meteo$station), collapse = ", ")`) s'affichent avec leurs accents.
+
+## A4
+
+```{r A4}
+# a. Indicateurs par station (stockés dans bilan_meteo pour l'export en B3)
+bilan_meteo <- meteo %>%
+  group_by(station) %>%
+  summarise(
+    temp_min_moy = round(mean(temp_min, na.rm = TRUE), 2),
+    temp_max_moy = round(mean(temp_max, na.rm = TRUE), 2),
+    cumul_pluie = round(sum(pluie_mm, na.rm = TRUE), 1),
+    jours_gel = sum(temp_min < 0, na.rm = TRUE),
+    jours_pluie = sum(pluie_mm > 0, na.rm = TRUE)
+  )
+
+bilan_meteo
+
+# b. Stations record (gel et pluie)
+station_gel <- bilan_meteo %>% slice_max(jours_gel, n = 1)
+station_pluie <- bilan_meteo %>% slice_max(cumul_pluie, n = 1)
+
+# c. Jour le plus froid de chaque station
+jours_froids <- meteo %>%
+  group_by(station) %>%
+  slice_min(temp_min, n = 1, with_ties = FALSE) %>%
+  select(station, date, temp_min)
+
+jours_froids
+```
+
+- **a.** Le tableau `bilan_meteo` synthétise les moyennes de températures, les cumuls de précipitations et les nombres de jours de gel et de pluie pour chaque station.
+- **b.** La station ayant connu le plus grand nombre de jours de gel est **`r paste(station_gel$station, collapse = " et ")`** (**`r station_gel$jours_gel[1]` jours**), et celle ayant reçu le plus de pluie est **`r station_pluie$station[1]`** (**`r station_pluie$cumul_pluie[1]` mm**).
+- **c.** Le tableau `jours_froids` précise pour chaque station la date et la valeur de la température minimale absolue relevée en janvier 2026.
