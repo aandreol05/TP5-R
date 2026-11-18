@@ -259,3 +259,53 @@ cumul_annuel_pluie
 - **a.** Le classeur contient les feuilles **`r paste(feuilles_pluie, collapse = " et ")`**. À l'ouverture, le tableau de données commence à la **4e ligne** (il faut donc utiliser `skip = 3`).
 - **b.** Les deux feuilles ont été importées et empilées dans le tibble `pluie` (**`r nrow(pluie)` lignes** au total) avec une colonne `annee` de type **`r class(pluie$annee)`**.
 - **c.** Le tableau `cumul_annuel_pluie` présente le total des précipitations (en mm) enregistré par chaque station en 2024 et en 2025.
+
+## B2
+
+```{r B2}
+library(haven)
+
+# a. Importation du fichier SAS
+pays <- read_sas("data/paysniv3.sas7bdat")
+
+dim(pays)
+# Variables contenant au moins une valeur manquante
+vars_na <- names(which(colSums(is.na(pays)) > 0))
+vars_na
+
+# b. Transformation de CONTI en facteur nommé
+pays <- pays %>%
+  mutate(
+    CONTI = factor(
+      CONTI,
+      levels = 1:5,
+      labels = c("Afrique", "Asie", "Amériques", "Europe", "Océanie")
+    )
+  )
+
+# c. Statistiques par continent triées par espérance de vie croissante
+stats_continents <- pays %>%
+  group_by(CONTI) %>%
+  summarise(
+    nb_pays = n(),
+    esperance_vie_moy = round(mean(ESPER, na.rm = TRUE), 2),
+    fecondite_moy = round(mean(FERTI, na.rm = TRUE), 2),
+    pnb_median = median(PNB, na.rm = TRUE)
+  ) %>%
+  arrange(esperance_vie_moy)
+
+stats_continents
+
+# d. Les 5 pays où l'espérance de vie est la plus basse
+top5_esperance_basse <- pays %>%
+  filter(!is.na(ESPER)) %>%
+  slice_min(ESPER, n = 5) %>%
+  select(NOM, CONTI, ESPER, FERTI, PNB)
+
+top5_esperance_basse
+```
+
+- **a.** Le jeu de données `pays` compte **`r nrow(pays)` pays** (lignes) et **`r ncol(pays)` variables** (colonnes). Les variables présentant des valeurs manquantes sont : **`r paste(vars_na, collapse = ", ")`**.
+- **b.** La variable `CONTI` a été convertie en facteur (`is.factor(pays$CONTI)` vaut **`r is.factor(pays$CONTI)`**).
+- **c.** Le tableau `stats_continents` résume les indicateurs démographiques et économiques par continent, classés par espérance de vie moyenne croissante.
+- **d.** Les 5 pays ayant l'espérance de vie la plus faible sont : **`r paste(top5_esperance_basse$NOM, collapse = ", ")`**.

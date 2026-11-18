@@ -1918,6 +1918,84 @@ présente le total des précipitations (en mm) enregistré par chaque
 station en 2024 et en 2025.</li>
 </ul>
 </div>
+<div id="b2" class="section level2">
+<h2>B2</h2>
+<pre class="r"><code>library(haven)
+
+# a. Importation du fichier SAS
+pays &lt;- read_sas(&quot;data/paysniv3.sas7bdat&quot;)
+
+dim(pays)</code></pre>
+<pre><code>## [1] 173  25</code></pre>
+<pre class="r"><code># Variables contenant au moins une valeur manquante
+vars_na &lt;- names(which(colSums(is.na(pays)) &gt; 0))
+vars_na</code></pre>
+<pre><code>##  [1] &quot;DOUB&quot;  &quot;URBA&quot;  &quot;EAU&quot;   &quot;ENERG&quot; &quot;ENERT&quot; &quot;PNB&quot;   &quot;SURF&quot;  &quot;CULTU&quot; &quot;PATUR&quot;
+## [10] &quot;FORET&quot;</code></pre>
+<pre class="r"><code># b. Transformation de CONTI en facteur nommé
+pays &lt;- pays %&gt;%
+  mutate(
+    CONTI = factor(
+      CONTI,
+      levels = 1:5,
+      labels = c(&quot;Afrique&quot;, &quot;Asie&quot;, &quot;Amériques&quot;, &quot;Europe&quot;, &quot;Océanie&quot;)
+    )
+  )
+
+# c. Statistiques par continent triées par espérance de vie croissante
+stats_continents &lt;- pays %&gt;%
+  group_by(CONTI) %&gt;%
+  summarise(
+    nb_pays = n(),
+    esperance_vie_moy = round(mean(ESPER, na.rm = TRUE), 2),
+    fecondite_moy = round(mean(FERTI, na.rm = TRUE), 2),
+    pnb_median = median(PNB, na.rm = TRUE)
+  ) %&gt;%
+  arrange(esperance_vie_moy)
+
+stats_continents</code></pre>
+<pre><code>## # A tibble: 5 × 5
+##   CONTI     nb_pays esperance_vie_moy fecondite_moy pnb_median
+##   &lt;fct&gt;       &lt;int&gt;             &lt;dbl&gt;         &lt;dbl&gt;      &lt;dbl&gt;
+## 1 Afrique        53              50.8          6.11        370
+## 2 Asie           44              60.8          4.88       1150
+## 3 Océanie         9              67.9          4.06       1700
+## 4 Amériques      39              68.4          3.43       1320
+## 5 Europe         28              73.5          1.87       8335</code></pre>
+<pre class="r"><code># d. Les 5 pays où l&#39;espérance de vie est la plus basse
+top5_esperance_basse &lt;- pays %&gt;%
+  filter(!is.na(ESPER)) %&gt;%
+  slice_min(ESPER, n = 5) %&gt;%
+  select(NOM, CONTI, ESPER, FERTI, PNB)
+
+top5_esperance_basse</code></pre>
+<pre><code>## # A tibble: 7 × 5
+##   NOM          CONTI   ESPER FERTI   PNB
+##   &lt;chr&gt;        &lt;fct&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 SIERRA LEONE Afrique    35   6.2   370
+## 2 GAMBIA       Afrique    36   6.4   230
+## 3 AFGANISTHAN  Asie       39   7.6   160
+## 4 EAST TIMOR   Asie       40   5.8    NA
+## 5 GUINEA       Afrique    41   6.2   320
+## 6 ETHIOPIA     Afrique    41   6.7   110
+## 7 SOMALIA      Afrique    41   7.1   270</code></pre>
+<ul>
+<li><strong>a.</strong> Le jeu de données <code>pays</code> compte
+<strong>173 pays</strong> (lignes) et <strong>25 variables</strong>
+(colonnes). Les variables présentant des valeurs manquantes sont :
+<strong>DOUB, URBA, EAU, ENERG, ENERT, PNB, SURF, CULTU, PATUR,
+FORET</strong>.</li>
+<li><strong>b.</strong> La variable <code>CONTI</code> a été convertie
+en facteur (<code>is.factor(pays$CONTI)</code> vaut
+<strong>TRUE</strong>).</li>
+<li><strong>c.</strong> Le tableau <code>stats_continents</code> résume
+les indicateurs démographiques et économiques par continent, classés par
+espérance de vie moyenne croissante.</li>
+<li><strong>d.</strong> Les 5 pays ayant l’espérance de vie la plus
+faible sont : <strong>SIERRA LEONE, GAMBIA, AFGANISTHAN, EAST TIMOR,
+GUINEA, ETHIOPIA, SOMALIA</strong>.</li>
+</ul>
+</div>
 </div>
 
 
