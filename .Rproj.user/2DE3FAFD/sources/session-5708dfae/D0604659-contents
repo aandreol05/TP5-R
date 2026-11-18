@@ -534,3 +534,60 @@ c(
   - **Sexe (`Gender`) :** **`r sum(!emp$Gender %in% c("F", "M") & !is.na(emp$Gender))` ligne(s)** contenant un code invalide autre que `"F"` ou `"M"`, ainsi que `r sum(is.na(emp$Gender))` `NA`.
   - **Salaire (`Salary`) :** **`r nb_sal_aberrants` ligne(s)** avec un salaire anormalement bas ($< 10\,000$, erreur d'un facteur 10).
   - **Dates (`Birth_Date` et `Hire_Date`) :** importées en texte (`character`), avec **`r nb_hire_avant_1974` date(s) d'embauche antérieure(s) à 1974** (impossible puisque l'enseigne a été fondée en 1974).
+  
+
+## D2
+
+```{r D2}
+# Détection automatique du format de date dans le fichier source
+parse_date_auto <- function(x) {
+  d <- suppressWarnings(dmy(x))
+  if (all(is.na(d))) d <- suppressWarnings(ymd(x))
+  if (all(is.na(d))) d <- suppressWarnings(mdy(x))
+  return(d)
+}
+
+# Pipeline complet de nettoyage
+emp_propre <- emp %>%
+  # Suppression des éventuelles lignes strictement dupliquées
+  distinct() %>%
+  mutate(
+    # 1. Country en majuscules
+    Country = toupper(Country),
+    
+    # 2. Gender : NA pour toute valeur autre que F et M
+    Gender = if_else(Gender %in% c("F", "M"), Gender, NA_character_),
+    
+    # 3. Salaires < 10 000 multipliés par 10
+    Salary = if_else(Salary < 10000, Salary * 10, Salary),
+    
+    # 4. Conversion en dates et remplacement des embauches < 1974 par NA
+    Birth_Date = parse_date_auto(Birth_Date),
+    Hire_Date = parse_date_auto(Hire_Date),
+    Hire_Date = if_else(year(Hire_Date) < 1974, as.Date(NA), Hire_Date),
+    
+    # 5. Attribution de max(Employee_ID) + 1 à l'employé sans identifiant
+    Employee_ID = if_else(
+      is.na(Employee_ID),
+      max(Employee_ID, na.rm = TRUE) + 1,
+      Employee_ID
+    ),
+    
+    # 6. Calcul de l'âge en années révolues à l'embauche et de l'ancienneté au 31/12/2007
+    age_embauche = floor(time_length(interval(Birth_Date, Hire_Date), "years")),
+    anciennete = floor(time_length(interval(Hire_Date, as.Date("2007-12-31")), "years"))
+  )
+
+# Vérification que toutes les anomalies de D1 ont disparu
+c(
+  ID_manquant = sum(is.na(emp_propre$Employee_ID)),
+  Country_non_maj = sum(emp_propre$Country != toupper(emp_propre$Country), na.rm = TRUE),
+  Gender_invalide = sum(!emp_propre$Gender %in% c("F", "M") & !is.na(emp_propre$Gender)),
+  Salaire_inf_10k = sum(emp_propre$Salary < 10000, na.rm = TRUE),
+  Embauche_avant_1974 = sum(year(emp_propre$Hire_Date) < 1974, na.rm = TRUE),
+  Classe_Birth_Date = inherits(emp_propre$Birth_Date, "Date"),
+  Classe_Hire_Date = inherits(emp_propre$Hire_Date, "Date")
+)
+```
+
+- Toutes les vérifications post-nettoyage renvoient `0` anomalie (et `1` / `TRUE` pour le typage `Date`), confirmant que la table `emp_propre` (**`r nrow(emp_propre)` employés**) est prête pour l'analyse.
