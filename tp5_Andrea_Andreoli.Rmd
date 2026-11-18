@@ -643,3 +643,65 @@ jeunes_embauches
 - **b.** Les 5 postes les plus fréquents sont **`r paste(top5_postes$Job_Title, collapse = ", ")`**, avec en tête **`r top5_postes$Job_Title[1]`** (`r top5_postes$effectif[1]` employés, salaire moyen de **`r top5_postes$salaire_moyen[1]` $**).
 - **c.** Le tableau `age_decennie` présente l'évolution de l'âge moyen au recrutement par décennie (`r paste(age_decennie$decennie, collapse = ", ")`).
 - **d.** L'âge minimal enregistré à l'embauche est de **`r age_min_emb` ans**, et **`r nrow(jeunes_embauches)` employé(s)** ont été embauchés avant 16 ans. **Non, ce n'est pas plausible** : la législation du travail aux États-Unis comme en Australie interdit l'embauche à temps plein d'enfants de cet âge — il s'agit très probablement d'erreurs de saisie sur l'année de naissance (`Birth_Date`).
+
+## D4
+
+```{r D4}
+# a. Importation des commandes et des clients, et vérification des clients absents
+commandes <- read_csv("data/commandes.csv")
+customers <- read_csv("data/customer.csv")
+
+clients_absents <- anti_join(commandes, customers, by = "Customer_ID")
+nrow(clients_absents)
+
+# b. Ajout du pays et du sexe du client aux commandes, et calcul du CA par pays client
+# (Adaptez le nom de la colonne montant si besoin, ex: Total_Retail_Price)
+col_ca <- intersect(names(commandes), c("Total_Retail_Price", "CA", "Montant", "Price"))[1]
+
+cmd_clients <- commandes %>%
+  left_join(
+    customers %>% select(Customer_ID, Country, Gender),
+    by = "Customer_ID"
+  )
+
+ca_par_pays <- cmd_clients %>%
+  group_by(Country) %>%
+  summarise(
+    ca_total = sum(.data[[col_ca]], na.rm = TRUE)
+  ) %>%
+  mutate(part_ca_pct = round((ca_total / sum(ca_total)) * 100, 2)) %>%
+  arrange(desc(ca_total))
+
+ca_par_pays
+
+part_ca_us <- ca_par_pays %>%
+  filter(toupper(Country) %in% c("US", "USA", "UNITED STATES")) %>%
+  pull(part_ca_pct)
+
+# c. Jointure des ventes avec vendeur (Employee_ID != 99999999) avec emp_propre
+cmd_avec_vendeur <- commandes %>%
+  filter(Employee_ID != 99999999)
+
+cmd_vendeur_trouve <- cmd_avec_vendeur %>%
+  inner_join(emp_propre, by = "Employee_ID")
+
+nb_cmd_vendeur <- nrow(cmd_avec_vendeur)
+nb_cmd_match <- nrow(cmd_vendeur_trouve)
+
+c(Commandes_avec_vendeur = nb_cmd_vendeur, Vendeur_trouve_dans_RH = nb_cmd_match)
+
+# d. Vendeur ayant réalisé le plus gros CA parmi les vendeurs identifiés
+col_nom_emp <- intersect(names(emp_propre), c("Employee_Name", "Name", "Nom"))[1]
+
+top_vendeur <- cmd_vendeur_trouve %>%
+  group_by(Employee_ID, across(all_of(c(col_nom_emp, "Job_Title")))) %>%
+  summarise(ca_vendeur = sum(.data[[col_ca]], na.rm = TRUE), .groups = "drop") %>%
+  slice_max(ca_vendeur, n = 1, with_ties = FALSE)
+
+top_vendeur
+```
+
+- **a.** `anti_join(commandes, customers, by = "Customer_ID")` renvoie **`r nrow(clients_absents)` ligne(s)** : **`r if(nrow(clients_absents) == 0) "oui, tous les clients ayant passé commande figurent bien dans le fichier clients." else "non, certains clients des commandes sont absents du référentiel clients."`**
+- **b.** Les clients américains génèrent **`r part_ca_us` %** du chiffre d'affaires total.
+- **c.** Sur les **`r nb_cmd_vendeur` lignes de commandes** associées à un vendeur (`Employee_ID != 99999999`), **`r nb_cmd_match` lignes** retrouvent leur vendeur dans `emp_propre`. On en conclut que **`r if(nb_cmd_match < nb_cmd_vendeur) "le fichier RH employee.csv est incomplet ou ne couvre qu'une partie du personnel commercial (certains identifiants vendeurs sont absents de la table RH)." else "la cohérence référentielle entre les ventes et le fichier RH est totale."`**
+- **d.** Parmi les vendeurs identifiés, celui qui a réalisé le plus gros chiffre d'affaires est **`r top_vendeur[[col_nom_emp]][1]`** (poste : **`r top_vendeur$Job_Title[1]`**) avec un montant cumulé de **`r round(top_vendeur$ca_vendeur[1], 2)` $**.
