@@ -14,3 +14,63 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(readxl)
 ```
+
+---
+
+# Partie A : Importer des fichiers texte récalcitrants
+
+## A1
+
+```{r A1}
+# a. Fichier de référence (encodage Mac OS Roman, séparateur tabulation)
+ref <- read.table(
+  "data/auto2004_original.txt",
+  header = TRUE,
+  sep = "\t",
+  fileEncoding = "macroman"
+)
+
+# b. Fichier avec 3 lignes de commentaire en en-tête
+l3 <- read.table(
+  "data/auto2004_original_ligne3.txt",
+  header = TRUE,
+  sep = "\t",
+  skip = 3,
+  fileEncoding = "macroman"
+)
+
+# c. Fichier sans noms de colonnes
+sn <- read.table(
+  "data/auto2004_sans_nom.txt",
+  header = FALSE,
+  sep = "\t",
+  col.names = names(ref),
+  fileEncoding = "macroman"
+)
+
+# d. Fichier avec valeurs manquantes standards (NA ou vides)
+dm <- read.table(
+  "data/auto2004_don_manquante.txt",
+  header = TRUE,
+  sep = "\t",
+  na.strings = c("NA", ""),
+  fileEncoding = "macroman"
+)
+
+# e. Fichier avec valeurs manquantes codées 99999
+d99 <- read.table(
+  "data/auto2004_don_manquan_99999.txt",
+  header = TRUE,
+  sep = "\t",
+  na.strings = "99999",
+  fileEncoding = "macroman"
+)
+
+# Vérification en une instruction par fichier (noms, dimensions et types)
+identical(lapply(l3, class), lapply(ref, class)) && identical(dim(l3), dim(ref))
+identical(lapply(sn, class), lapply(ref, class)) && identical(dim(sn), dim(ref))
+identical(lapply(dm, class), lapply(ref, class)) && identical(dim(dm), dim(ref))
+identical(lapply(d99, class), lapply(ref, class)) && identical(dim(d99), dim(ref))
+```
+
+- Les quatre fichiers importés (`l3`, `sn`, `dm`, `d99`) possèdent exactement les mêmes dimensions (**`r nrow(ref)` lignes $\times$ `r ncol(ref)` colonnes**), les mêmes noms de variables et les mêmes types que le fichier de référence `ref`.

@@ -1505,7 +1505,73 @@ données</h1>
 </div>
 
 
+<hr />
+<div id="partie-a-importer-des-fichiers-texte-récalcitrants" class="section level1">
+<h1>Partie A : Importer des fichiers texte récalcitrants</h1>
+<div id="a1" class="section level2">
+<h2>A1</h2>
+<pre class="r"><code># a. Fichier de référence (encodage Mac OS Roman, séparateur tabulation)
+ref &lt;- read.table(
+  &quot;data/auto2004_original.txt&quot;,
+  header = TRUE,
+  sep = &quot;\t&quot;,
+  fileEncoding = &quot;macroman&quot;
+)
 
+# b. Fichier avec 3 lignes de commentaire en en-tête
+l3 &lt;- read.table(
+  &quot;data/auto2004_original_ligne3.txt&quot;,
+  header = TRUE,
+  sep = &quot;\t&quot;,
+  skip = 3,
+  fileEncoding = &quot;macroman&quot;
+)
+
+# c. Fichier sans noms de colonnes
+sn &lt;- read.table(
+  &quot;data/auto2004_sans_nom.txt&quot;,
+  header = FALSE,
+  sep = &quot;\t&quot;,
+  col.names = names(ref),
+  fileEncoding = &quot;macroman&quot;
+)
+
+# d. Fichier avec valeurs manquantes standards (NA ou vides)
+dm &lt;- read.table(
+  &quot;data/auto2004_don_manquante.txt&quot;,
+  header = TRUE,
+  sep = &quot;\t&quot;,
+  na.strings = c(&quot;NA&quot;, &quot;&quot;),
+  fileEncoding = &quot;macroman&quot;
+)
+
+# e. Fichier avec valeurs manquantes codées 99999
+d99 &lt;- read.table(
+  &quot;data/auto2004_don_manquan_99999.txt&quot;,
+  header = TRUE,
+  sep = &quot;\t&quot;,
+  na.strings = &quot;99999&quot;,
+  fileEncoding = &quot;macroman&quot;
+)
+
+# Vérification en une instruction par fichier (noms, dimensions et types)
+identical(lapply(l3, class), lapply(ref, class)) &amp;&amp; identical(dim(l3), dim(ref))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>identical(lapply(sn, class), lapply(ref, class)) &amp;&amp; identical(dim(sn), dim(ref))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>identical(lapply(dm, class), lapply(ref, class)) &amp;&amp; identical(dim(dm), dim(ref))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>identical(lapply(d99, class), lapply(ref, class)) &amp;&amp; identical(dim(d99), dim(ref))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<ul>
+<li>Les quatre fichiers importés (<code>l3</code>, <code>sn</code>,
+<code>dm</code>, <code>d99</code>) possèdent exactement les mêmes
+dimensions (<strong>24 lignes <span class="math inline">\(\times\)</span> 7 colonnes</strong>), les mêmes
+noms de variables et les mêmes types que le fichier de référence
+<code>ref</code>.</li>
+</ul>
+</div>
+</div>
 
 
 
