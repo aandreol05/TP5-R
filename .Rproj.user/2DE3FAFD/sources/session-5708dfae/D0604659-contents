@@ -113,3 +113,35 @@ c(Moyenne_sans_na.strings = moy_fausse, Moyenne_reelle = moy_vraie, Erreur = err
 - **a.** Les deux tables `dm` et `d99` contiennent chacune **`r sum(na_dm)` valeurs manquantes**, situées strictement aux mêmes positions (`identical(is.na(dm), is.na(d99))` vaut **`r identical(na_dm, na_d99)`**).
 - **b.** Les tableaux ci-dessus affichent les véhicules concernés ainsi que leurs valeurs d'origine extraites de `ref`.
 - **c.** Sans `na.strings = "99999"`, les codes `99999` sont inclus dans le calcul : on obtient une puissance moyenne biaisée de **`r round(moy_fausse, 2)` ch** au lieu de **`r round(moy_vraie, 2)` ch**, soit une surestimation de **`r round(erreur_moy, 2)` ch**.
+
+
+## A3
+
+```{r A3}
+# Aperçu brut des premières lignes pour repérer commentaires, séparateur, décimale et encodage
+read_lines("data/stations_janvier2026.csv", n_max = 6)
+
+# a. Importation avec readr en un seul appel
+# (Adaptez skip, na, locale et col_types si vos en-têtes bruts diffèrent légèrement)
+meteo <- read_delim(
+  "data/stations_janvier2026.csv",
+  delim = ";",
+  skip = 2,
+  na = c("", "NA", "-999", "nd", "n/a"),
+  locale = locale(encoding = "latin1", decimal_mark = ","),
+  col_types = cols(
+    date = col_date(format = "%d/%m/%Y"),
+    station = col_character(),
+    .default = col_double()
+  )
+)
+
+# b. Vérifications : dimensions, types, NA par colonne, période et stations
+dim(meteo)
+glimpse(meteo)
+colSums(is.na(meteo))
+range(meteo$date, na.rm = TRUE)
+unique(meteo$station)
+```
+
+- **a & b.** Le jeu `meteo` comporte **`r nrow(meteo)` lignes** et **`r ncol(meteo)` colonnes**. La colonne `date` est bien de classe `Date` (couvrant la période du **`r min(meteo$date, na.rm = TRUE)`** au **`r max(meteo$date, na.rm = TRUE)`**), les variables météorologiques sont numériques (`double`), et les **`r length(unique(meteo$station))` stations** (`r paste(unique(meteo$station), collapse = ", ")`) s'affichent avec leurs accents.
