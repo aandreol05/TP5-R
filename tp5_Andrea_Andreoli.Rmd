@@ -534,3 +534,112 @@ c(
   - **Sexe (`Gender`) :** **`r sum(!emp$Gender %in% c("F", "M") & !is.na(emp$Gender))` ligne(s)** contenant un code invalide autre que `"F"` ou `"M"`, ainsi que `r sum(is.na(emp$Gender))` `NA`.
   - **Salaire (`Salary`) :** **`r nb_sal_aberrants` ligne(s)** avec un salaire anormalement bas ($< 10\,000$, erreur d'un facteur 10).
   - **Dates (`Birth_Date` et `Hire_Date`) :** importées en texte (`character`), avec **`r nb_hire_avant_1974` date(s) d'embauche antérieure(s) à 1974** (impossible puisque l'enseigne a été fondée en 1974).
+  
+
+## D2
+
+```{r D2}
+# Détection automatique du format de date dans le fichier source
+parse_date_auto <- function(x) {
+  d <- suppressWarnings(dmy(x))
+  if (all(is.na(d))) d <- suppressWarnings(ymd(x))
+  if (all(is.na(d))) d <- suppressWarnings(mdy(x))
+  return(d)
+}
+
+# Pipeline complet de nettoyage
+emp_propre <- emp %>%
+  # Suppression des éventuelles lignes strictement dupliquées
+  distinct() %>%
+  mutate(
+    # 1. Country en majuscules
+    Country = toupper(Country),
+    
+    # 2. Gender : NA pour toute valeur autre que F et M
+    Gender = if_else(Gender %in% c("F", "M"), Gender, NA_character_),
+    
+    # 3. Salaires < 10 000 multipliés par 10
+    Salary = if_else(Salary < 10000, Salary * 10, Salary),
+    
+    # 4. Conversion en dates et remplacement des embauches < 1974 par NA
+    Birth_Date = parse_date_auto(Birth_Date),
+    Hire_Date = parse_date_auto(Hire_Date),
+    Hire_Date = if_else(year(Hire_Date) < 1974, as.Date(NA), Hire_Date),
+    
+    # 5. Attribution de max(Employee_ID) + 1 à l'employé sans identifiant
+    Employee_ID = if_else(
+      is.na(Employee_ID),
+      max(Employee_ID, na.rm = TRUE) + 1,
+      Employee_ID
+    ),
+    
+    # 6. Calcul de l'âge en années révolues à l'embauche et de l'ancienneté au 31/12/2007
+    age_embauche = floor(time_length(interval(Birth_Date, Hire_Date), "years")),
+    anciennete = floor(time_length(interval(Hire_Date, as.Date("2007-12-31")), "years"))
+  )
+
+# Vérification que toutes les anomalies de D1 ont disparu
+c(
+  ID_manquant = sum(is.na(emp_propre$Employee_ID)),
+  Country_non_maj = sum(emp_propre$Country != toupper(emp_propre$Country), na.rm = TRUE),
+  Gender_invalide = sum(!emp_propre$Gender %in% c("F", "M") & !is.na(emp_propre$Gender)),
+  Salaire_inf_10k = sum(emp_propre$Salary < 10000, na.rm = TRUE),
+  Embauche_avant_1974 = sum(year(emp_propre$Hire_Date) < 1974, na.rm = TRUE),
+  Classe_Birth_Date = inherits(emp_propre$Birth_Date, "Date"),
+  Classe_Hire_Date = inherits(emp_propre$Hire_Date, "Date")
+)
+```
+
+- Toutes les vérifications post-nettoyage renvoient `0` anomalie (et `1` / `TRUE` pour le typage `Date`), confirmant que la table `emp_propre` (**`r nrow(emp_propre)` employés**) est prête pour l'analyse.
+
+## D3
+
+```{r D3}
+# a. Salaire médian par pays et par sexe
+sal_median_pays_sexe <- emp_propre %>%
+  group_by(Country, Gender) %>%
+  summarise(
+    effectif = n(),
+    salaire_median = median(Salary, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+sal_median_pays_sexe
+
+# b. Les 5 intitulés de poste (Job_Title) les plus fréquents et leur salaire moyen
+top5_postes <- emp_propre %>%
+  group_by(Job_Title) %>%
+  summarise(
+    effectif = n(),
+    salaire_moyen = round(mean(Salary, na.rm = TRUE), 2)
+  ) %>%
+  slice_max(effectif, n = 5, with_ties = FALSE)
+
+top5_postes
+
+# c. Âge moyen à l'embauche selon la décennie d'embauche
+age_decennie <- emp_propre %>%
+  filter(!is.na(Hire_Date)) %>%
+  mutate(decennie = (year(Hire_Date) %/% 10) * 10) %>%
+  group_by(decennie) %>%
+  summarise(
+    nb_embauches = n(),
+    age_moyen_embauche = round(mean(age_embauche, na.rm = TRUE), 2)
+  ) %>%
+  arrange(decennie)
+
+age_decennie
+
+# d. Âge minimal à l'embauche et employés embauchés avant 16 ans
+age_min_emb <- min(emp_propre$age_embauche, na.rm = TRUE)
+jeunes_embauches <- emp_propre %>%
+  filter(age_embauche < 16) %>%
+  select(Employee_ID, Birth_Date, Hire_Date, age_embauche, Job_Title)
+
+jeunes_embauches
+```
+
+- **a.** Le tableau `sal_median_pays_sexe` détaille la rémunération médiane par pays (`AU` et `US`) et par sexe.
+- **b.** Les 5 postes les plus fréquents sont **`r paste(top5_postes$Job_Title, collapse = ", ")`**, avec en tête **`r top5_postes$Job_Title[1]`** (`r top5_postes$effectif[1]` employés, salaire moyen de **`r top5_postes$salaire_moyen[1]` $**).
+- **c.** Le tableau `age_decennie` présente l'évolution de l'âge moyen au recrutement par décennie (`r paste(age_decennie$decennie, collapse = ", ")`).
+- **d.** L'âge minimal enregistré à l'embauche est de **`r age_min_emb` ans**, et **`r nrow(jeunes_embauches)` employé(s)** ont été embauchés avant 16 ans. **Non, ce n'est pas plausible** : la législation du travail aux États-Unis comme en Australie interdit l'embauche à temps plein d'enfants de cet âge — il s'agit très probablement d'erreurs de saisie sur l'année de naissance (`Birth_Date`).
