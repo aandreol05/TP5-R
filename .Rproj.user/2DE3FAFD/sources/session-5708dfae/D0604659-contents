@@ -591,3 +591,55 @@ c(
 ```
 
 - Toutes les vérifications post-nettoyage renvoient `0` anomalie (et `1` / `TRUE` pour le typage `Date`), confirmant que la table `emp_propre` (**`r nrow(emp_propre)` employés**) est prête pour l'analyse.
+
+## D3
+
+```{r D3}
+# a. Salaire médian par pays et par sexe
+sal_median_pays_sexe <- emp_propre %>%
+  group_by(Country, Gender) %>%
+  summarise(
+    effectif = n(),
+    salaire_median = median(Salary, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+sal_median_pays_sexe
+
+# b. Les 5 intitulés de poste (Job_Title) les plus fréquents et leur salaire moyen
+top5_postes <- emp_propre %>%
+  group_by(Job_Title) %>%
+  summarise(
+    effectif = n(),
+    salaire_moyen = round(mean(Salary, na.rm = TRUE), 2)
+  ) %>%
+  slice_max(effectif, n = 5, with_ties = FALSE)
+
+top5_postes
+
+# c. Âge moyen à l'embauche selon la décennie d'embauche
+age_decennie <- emp_propre %>%
+  filter(!is.na(Hire_Date)) %>%
+  mutate(decennie = (year(Hire_Date) %/% 10) * 10) %>%
+  group_by(decennie) %>%
+  summarise(
+    nb_embauches = n(),
+    age_moyen_embauche = round(mean(age_embauche, na.rm = TRUE), 2)
+  ) %>%
+  arrange(decennie)
+
+age_decennie
+
+# d. Âge minimal à l'embauche et employés embauchés avant 16 ans
+age_min_emb <- min(emp_propre$age_embauche, na.rm = TRUE)
+jeunes_embauches <- emp_propre %>%
+  filter(age_embauche < 16) %>%
+  select(Employee_ID, Birth_Date, Hire_Date, age_embauche, Job_Title)
+
+jeunes_embauches
+```
+
+- **a.** Le tableau `sal_median_pays_sexe` détaille la rémunération médiane par pays (`AU` et `US`) et par sexe.
+- **b.** Les 5 postes les plus fréquents sont **`r paste(top5_postes$Job_Title, collapse = ", ")`**, avec en tête **`r top5_postes$Job_Title[1]`** (`r top5_postes$effectif[1]` employés, salaire moyen de **`r top5_postes$salaire_moyen[1]` $**).
+- **c.** Le tableau `age_decennie` présente l'évolution de l'âge moyen au recrutement par décennie (`r paste(age_decennie$decennie, collapse = ", ")`).
+- **d.** L'âge minimal enregistré à l'embauche est de **`r age_min_emb` ans**, et **`r nrow(jeunes_embauches)` employé(s)** ont été embauchés avant 16 ans. **Non, ce n'est pas plausible** : la législation du travail aux États-Unis comme en Australie interdit l'embauche à temps plein d'enfants de cet âge — il s'agit très probablement d'erreurs de saisie sur l'année de naissance (`Birth_Date`).
