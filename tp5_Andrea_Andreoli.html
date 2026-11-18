@@ -1996,6 +1996,139 @@ faible sont : <strong>SIERRA LEONE, GAMBIA, AFGANISTHAN, EAST TIMOR,
 GUINEA, ETHIOPIA, SOMALIA</strong>.</li>
 </ul>
 </div>
+<div id="b3" class="section level2">
+<h2>B3</h2>
+<pre class="r"><code>library(writexl)
+
+# Création du dossier sorties/ s&#39;il n&#39;existe pas encore
+if (!dir.exists(&quot;sorties&quot;)) {
+  dir.create(&quot;sorties&quot;)
+}
+
+# a. Export de bilan_meteo en CSV &quot;à la française&quot; (séparateur ; et virgule décimale)
+write.csv2(bilan_meteo, &quot;sorties/bilan_meteo.csv&quot;, row.names = FALSE, fileEncoding = &quot;UTF-8&quot;)
+
+# Relecture pour comparaison
+bilan_relu &lt;- read.csv2(&quot;sorties/bilan_meteo.csv&quot;, fileEncoding = &quot;UTF-8&quot;)
+all.equal(as.data.frame(bilan_meteo), bilan_relu)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code># b. Export de pluie et bilan_meteo dans un seul fichier Excel (une feuille chacun)
+write_xlsx(
+  list(
+    Pluie_mensuelle = pluie,
+    Bilan_meteo = bilan_meteo
+  ),
+  path = &quot;sorties/synthese_tp5.xlsx&quot;
+)
+
+# c. Sauvegarde de pays au format .rds et vérification de la classe du facteur
+saveRDS(pays, &quot;sorties/pays.rds&quot;)
+pays_relu &lt;- readRDS(&quot;sorties/pays.rds&quot;)
+
+is.factor(pays_relu$CONTI)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>levels(pays_relu$CONTI)</code></pre>
+<pre><code>## [1] &quot;Afrique&quot;   &quot;Asie&quot;      &quot;Amériques&quot; &quot;Europe&quot;    &quot;Océanie&quot;</code></pre>
+<ul>
+<li><strong>a.</strong> Après relecture avec <code>read.csv2()</code>,
+on retrouve exactement les mêmes valeurs et dimensions que
+<code>bilan_meteo</code> (à la différence près que
+<code>read.csv2()</code> renvoie un <code>data.frame</code> classique au
+lieu d’un <code>tibble</code>).</li>
+<li><strong>b.</strong> Le classeur
+<code>sorties/synthese_tp5.xlsx</code> a été généré avec deux onglets
+distincts (<code>Pluie_mensuelle</code> et
+<code>Bilan_meteo</code>).</li>
+<li><strong>c.</strong> Après sauvegarde et relecture au format
+<code>.rds</code>, la colonne <code>CONTI</code> conserve bien sa classe
+<strong>factor</strong> ainsi que l’ordre de ses niveaux (Afrique, Asie,
+Amériques, Europe, Océanie). Si l’on avait exporté en
+<strong>CSV</strong>, cette métadonnée aurait été perdue : la colonne
+aurait été relue comme un simple vecteur texte (<code>character</code>)
+ou entier, sans niveaux prédéfinis.</li>
+</ul>
+<hr />
+</div>
+</div>
+<div id="partie-c-ranger-les-données-tidy-data" class="section level1">
+<h1>Partie C : Ranger les données (tidy data)</h1>
+<div id="c1" class="section level2">
+<h2>C1</h2>
+<pre class="r"><code># Récupération dynamique du nom de la 1re colonne (identifiant de la station)
+col_station &lt;- names(pluie)[1]
+mois_cols &lt;- setdiff(names(pluie), c(col_station, &quot;annee&quot;))
+
+# a. Passage au format long (une ligne par station, année et mois)
+pluie_long &lt;- pluie %&gt;%
+  pivot_longer(
+    cols = all_of(mois_cols),
+    names_to = &quot;mois&quot;,
+    values_to = &quot;mm&quot;
+  ) %&gt;%
+  # b. Conversion de mois en facteur respectant l&#39;ordre chronologique des colonnes
+  mutate(mois = factor(mois, levels = mois_cols))
+
+head(pluie_long)</code></pre>
+<pre><code>## # A tibble: 6 × 4
+##   station annee mois     mm
+##   &lt;chr&gt;   &lt;dbl&gt; &lt;fct&gt; &lt;dbl&gt;
+## 1 Orléans  2024 janv     62
+## 2 Orléans  2024 févr     69
+## 3 Orléans  2024 mars     15
+## 4 Orléans  2024 avr      43
+## 5 Orléans  2024 mai      48
+## 6 Orléans  2024 juin     57</code></pre>
+<pre class="r"><code>levels(pluie_long$mois)</code></pre>
+<pre><code>##  [1] &quot;janv&quot; &quot;févr&quot; &quot;mars&quot; &quot;avr&quot;  &quot;mai&quot;  &quot;juin&quot; &quot;juil&quot; &quot;août&quot; &quot;sept&quot; &quot;oct&quot; 
+## [11] &quot;nov&quot;  &quot;déc&quot;</code></pre>
+<pre class="r"><code># c. Mois le plus pluvieux de chaque station en 2025
+mois_max_2025 &lt;- pluie_long %&gt;%
+  filter(annee == 2025) %&gt;%
+  group_by(across(all_of(col_station))) %&gt;%
+  slice_max(mm, n = 1, with_ties = FALSE) %&gt;%
+  select(all_of(col_station), mois, mm)
+
+mois_max_2025</code></pre>
+<pre><code>## # A tibble: 4 × 3
+## # Groups:   station [4]
+##   station       mois     mm
+##   &lt;chr&gt;         &lt;fct&gt; &lt;dbl&gt;
+## 1 Besançon      janv    220
+## 2 Nîmes         janv     79
+## 3 Orléans       juil    139
+## 4 Saint-Étienne nov      97</code></pre>
+<pre class="r"><code># d. Comparaison 2024 vs 2025 (format large par année et calcul de la différence)
+diff_pluie &lt;- pluie_long %&gt;%
+  pivot_wider(
+    names_from = annee,
+    values_from = mm,
+    names_prefix = &quot;Annee_&quot;
+  ) %&gt;%
+  mutate(difference = Annee_2025 - Annee_2024)
+
+# Station et mois ayant connu la plus forte hausse
+plus_forte_hausse &lt;- diff_pluie %&gt;%
+  slice_max(difference, n = 1, with_ties = FALSE)
+
+plus_forte_hausse</code></pre>
+<pre><code>## # A tibble: 1 × 5
+##   station  mois  Annee_2024 Annee_2025 difference
+##   &lt;chr&gt;    &lt;fct&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;
+## 1 Besançon janv          66        220        154</code></pre>
+<ul>
+<li><strong>a &amp; b.</strong> Le tibble <code>pluie_long</code>
+contient <strong>96 lignes</strong> et la colonne <code>mois</code> est
+bien un facteur ordonné selon le calendrier (janv, févr, mars, avr, mai,
+juin, juil, août, sept, oct, nov, déc).</li>
+<li><strong>c.</strong> Le tableau <code>mois_max_2025</code> indique le
+mois le plus pluvieux enregistré en 2025 pour chacune des quatre
+stations.</li>
+<li><strong>d.</strong> La plus forte hausse de précipitations entre
+2024 et 2025 a été observée à <strong>Besançon</strong> au mois de
+<strong>janv</strong>, avec une augmentation de <strong>154 mm</strong>
+(66 mm en 2024 contre 220 mm en 2025).</li>
+</ul>
+</div>
 </div>
 
 
