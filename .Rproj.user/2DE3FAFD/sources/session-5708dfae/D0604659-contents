@@ -74,3 +74,42 @@ identical(lapply(d99, class), lapply(ref, class)) && identical(dim(d99), dim(ref
 ```
 
 - Les quatre fichiers importés (`l3`, `sn`, `dm`, `d99`) possèdent exactement les mêmes dimensions (**`r nrow(ref)` lignes $\times$ `r ncol(ref)` colonnes**), les mêmes noms de variables et les mêmes types que le fichier de référence `ref`.
+
+
+## A2
+
+```{r A2}
+# a. Nombre de NA et comparaison de leurs positions
+na_dm <- is.na(dm)
+na_d99 <- is.na(d99)
+
+sum(na_dm)
+sum(na_d99)
+identical(na_dm, na_d99)
+
+# b. Modèles et valeurs originales (dans ref) des cases manquantes
+idx_na <- which(na_dm, arr.ind = TRUE)
+lignes_na <- unique(idx_na[, 1])
+
+# Affichage des voitures concernées dans ref et dans dm
+ref[lignes_na, ]
+dm[lignes_na, ]
+
+# c. Calcul de la puissance moyenne sans na.strings
+d99_brut <- read.table(
+  "data/auto2004_don_manquan_99999.txt",
+  header = TRUE,
+  sep = "\t",
+  fileEncoding = "macroman"
+)
+
+moy_fausse <- mean(d99_brut$Puissance)
+moy_vraie <- mean(d99$Puissance, na.rm = TRUE)
+erreur_moy <- moy_fausse - moy_vraie
+
+c(Moyenne_sans_na.strings = moy_fausse, Moyenne_reelle = moy_vraie, Erreur = erreur_moy)
+```
+
+- **a.** Les deux tables `dm` et `d99` contiennent chacune **`r sum(na_dm)` valeurs manquantes**, situées strictement aux mêmes positions (`identical(is.na(dm), is.na(d99))` vaut **`r identical(na_dm, na_d99)`**).
+- **b.** Les tableaux ci-dessus affichent les véhicules concernés ainsi que leurs valeurs d'origine extraites de `ref`.
+- **c.** Sans `na.strings = "99999"`, les codes `99999` sont inclus dans le calcul : on obtient une puissance moyenne biaisée de **`r round(moy_fausse, 2)` ch** au lieu de **`r round(moy_vraie, 2)` ch**, soit une surestimation de **`r round(erreur_moy, 2)` ch**.
