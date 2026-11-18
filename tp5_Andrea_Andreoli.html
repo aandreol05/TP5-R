@@ -1856,6 +1856,67 @@ prix_propre</code></pre>
 les décimales <code>,</code> et les valeurs manquantes sont tous
 correctement interprétés.</li>
 </ul>
+<hr />
+</div>
+</div>
+<div id="partie-b-excel-sas-et-export" class="section level1">
+<h1>Partie B : Excel, SAS et export</h1>
+<div id="b1" class="section level2">
+<h2>B1</h2>
+<pre class="r"><code># a. Liste des feuilles du classeur Excel
+feuilles_pluie &lt;- excel_sheets(&quot;data/pluie_mensuelle.xlsx&quot;)
+feuilles_pluie</code></pre>
+<pre><code>## [1] &quot;2024&quot; &quot;2025&quot;</code></pre>
+<pre class="r"><code># b. Importation des deux feuilles (en sautant les 3 lignes d&#39;en-tête) et empilement avec annee numérique
+pluie_2024 &lt;- read_excel(
+  &quot;data/pluie_mensuelle.xlsx&quot;,
+  sheet = &quot;2024&quot;,
+  skip = 3,
+  na = c(&quot;&quot;, &quot;NA&quot;, &quot;-&quot;, &quot;nd&quot;)
+) %&gt;%
+  mutate(annee = 2024)
+
+pluie_2025 &lt;- read_excel(
+  &quot;data/pluie_mensuelle.xlsx&quot;,
+  sheet = &quot;2025&quot;,
+  skip = 3,
+  na = c(&quot;&quot;, &quot;NA&quot;, &quot;-&quot;, &quot;nd&quot;)
+) %&gt;%
+  mutate(annee = 2025)
+
+# Empilement dans un seul tibble
+pluie &lt;- bind_rows(pluie_2024, pluie_2025)
+
+# c. Calcul du cumul annuel de chaque station pour chaque année
+col_station &lt;- names(pluie)[1]
+mois_cols &lt;- setdiff(names(pluie), c(col_station, &quot;annee&quot;))
+
+cumul_annuel_pluie &lt;- pluie %&gt;%
+  mutate(cumul_annuel = rowSums(across(all_of(mois_cols)), na.rm = TRUE)) %&gt;%
+  select(all_of(col_station), annee, cumul_annuel) %&gt;%
+  pivot_wider(names_from = annee, values_from = cumul_annuel, names_prefix = &quot;Annee_&quot;)
+
+cumul_annuel_pluie</code></pre>
+<pre><code>## # A tibble: 4 × 3
+##   station       Annee_2024 Annee_2025
+##   &lt;chr&gt;              &lt;dbl&gt;      &lt;dbl&gt;
+## 1 Orléans              663        863
+## 2 Besançon             626        753
+## 3 Nîmes                674        419
+## 4 Saint-Étienne        651        677</code></pre>
+<ul>
+<li><strong>a.</strong> Le classeur contient les feuilles <strong>2024
+et 2025</strong>. À l’ouverture, le tableau de données commence à la
+<strong>4e ligne</strong> (il faut donc utiliser
+<code>skip = 3</code>).</li>
+<li><strong>b.</strong> Les deux feuilles ont été importées et empilées
+dans le tibble <code>pluie</code> (<strong>8 lignes</strong> au total)
+avec une colonne <code>annee</code> de type
+<strong>numeric</strong>.</li>
+<li><strong>c.</strong> Le tableau <code>cumul_annuel_pluie</code>
+présente le total des précipitations (en mm) enregistré par chaque
+station en 2024 et en 2025.</li>
+</ul>
 </div>
 </div>
 

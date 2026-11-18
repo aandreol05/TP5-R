@@ -211,3 +211,51 @@ prix_propre
 ```
 
 - En ajoutant `locale = locale(encoding = "latin1")` à `read_csv2()` (avec `skip = 1` et `na = "n/a"`), les accents, les séparateurs `;`, les décimales `,` et les valeurs manquantes sont tous correctement interprétés.
+
+
+---
+
+# Partie B : Excel, SAS et export
+
+## B1
+
+```{r B1}
+# a. Liste des feuilles du classeur Excel
+feuilles_pluie <- excel_sheets("data/pluie_mensuelle.xlsx")
+feuilles_pluie
+
+# b. Importation des deux feuilles (en sautant les 3 lignes d'en-tête) et empilement avec annee numérique
+pluie_2024 <- read_excel(
+  "data/pluie_mensuelle.xlsx",
+  sheet = "2024",
+  skip = 3,
+  na = c("", "NA", "-", "nd")
+) %>%
+  mutate(annee = 2024)
+
+pluie_2025 <- read_excel(
+  "data/pluie_mensuelle.xlsx",
+  sheet = "2025",
+  skip = 3,
+  na = c("", "NA", "-", "nd")
+) %>%
+  mutate(annee = 2025)
+
+# Empilement dans un seul tibble
+pluie <- bind_rows(pluie_2024, pluie_2025)
+
+# c. Calcul du cumul annuel de chaque station pour chaque année
+col_station <- names(pluie)[1]
+mois_cols <- setdiff(names(pluie), c(col_station, "annee"))
+
+cumul_annuel_pluie <- pluie %>%
+  mutate(cumul_annuel = rowSums(across(all_of(mois_cols)), na.rm = TRUE)) %>%
+  select(all_of(col_station), annee, cumul_annuel) %>%
+  pivot_wider(names_from = annee, values_from = cumul_annuel, names_prefix = "Annee_")
+
+cumul_annuel_pluie
+```
+
+- **a.** Le classeur contient les feuilles **`r paste(feuilles_pluie, collapse = " et ")`**. À l'ouverture, le tableau de données commence à la **4e ligne** (il faut donc utiliser `skip = 3`).
+- **b.** Les deux feuilles ont été importées et empilées dans le tibble `pluie` (**`r nrow(pluie)` lignes** au total) avec une colonne `annee` de type **`r class(pluie$annee)`**.
+- **c.** Le tableau `cumul_annuel_pluie` présente le total des précipitations (en mm) enregistré par chaque station en 2024 et en 2025.
