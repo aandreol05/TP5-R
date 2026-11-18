@@ -2129,6 +2129,144 @@ stations.</li>
 (66 mm en 2024 contre 220 mm en 2025).</li>
 </ul>
 </div>
+<div id="c2" class="section level2">
+<h2>C2</h2>
+<pre class="r"><code># Construction du tibble long avec une ligne par station, date et type de mesure (min ou max)
+temp_long &lt;- meteo %&gt;%
+  select(station, date, min = temp_min, max = temp_max) %&gt;%
+  pivot_longer(
+    cols = c(min, max),
+    names_to = &quot;type_mesure&quot;,
+    values_to = &quot;temperature&quot;
+  )
+
+head(temp_long)</code></pre>
+<pre><code>## # A tibble: 6 × 4
+##   station date       type_mesure temperature
+##   &lt;chr&gt;   &lt;date&gt;     &lt;chr&gt;             &lt;dbl&gt;
+## 1 Orléans 2026-01-01 min                 2.3
+## 2 Orléans 2026-01-01 max                 4.8
+## 3 Orléans 2026-01-02 min                -1.7
+## 4 Orléans 2026-01-02 max                 5.2
+## 5 Orléans 2026-01-03 min                 1.3
+## 6 Orléans 2026-01-03 max                 6.2</code></pre>
+<pre class="r"><code># Calcul de l&#39;amplitude thermique quotidienne moyenne par station en repassant au format large
+amplitude_moyenne &lt;- temp_long %&gt;%
+  pivot_wider(
+    names_from = type_mesure,
+    values_from = temperature
+  ) %&gt;%
+  mutate(amplitude = max - min) %&gt;%
+  group_by(station) %&gt;%
+  summarise(
+    amplitude_moy = round(mean(amplitude, na.rm = TRUE), 2)
+  ) %&gt;%
+  arrange(desc(amplitude_moy))
+
+amplitude_moyenne</code></pre>
+<pre><code>## # A tibble: 4 × 2
+##   station       amplitude_moy
+##   &lt;chr&gt;                 &lt;dbl&gt;
+## 1 Saint-Étienne          6.36
+## 2 Orléans                6.33
+## 3 Nîmes                  6.16
+## 4 Besançon               6.13</code></pre>
+<ul>
+<li>Après passage au format long (<code>temp_long</code>) puis retour au
+format large par date et station, le tableau
+<code>amplitude_moyenne</code> donne l’écart thermique moyen journalier
+: c’est à <strong>Saint-Étienne</strong> que l’amplitude est la plus
+marquée (<strong>6.36 °C</strong> en moyenne).</li>
+</ul>
+</div>
+<div id="c3" class="section level2">
+<h2>C3</h2>
+<pre class="r"><code># a. Importation de wines.xlsx et passage au format long (etape + descripteur)
+wines &lt;- read_excel(&quot;data/wines.xlsx&quot;)
+
+wines_long &lt;- wines %&gt;%
+  pivot_longer(
+    cols = matches(&quot;^(rest|view|shaking|tasting)[0-9]+$&quot;),
+    names_to = c(&quot;etape&quot;, &quot;descripteur&quot;),
+    names_pattern = &quot;([a-z]+)([0-9]+)&quot;,
+    values_to = &quot;note&quot;
+  )
+
+head(wines_long)</code></pre>
+<pre><code>## # A tibble: 6 × 9
+##   Assessor1 Assessor2 Global Wines Soul   Appellation etape descripteur  note
+##       &lt;dbl&gt;     &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;        &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt;
+## 1      3.39      3.25   3.39 2EL   Soul 1           3 rest  1            3.07
+## 2      3.39      3.25   3.39 2EL   Soul 1           3 rest  2            3   
+## 3      3.39      3.25   3.39 2EL   Soul 1           3 rest  3            2.71
+## 4      3.39      3.25   3.39 2EL   Soul 1           3 rest  4            2.28
+## 5      3.39      3.25   3.39 2EL   Soul 1           3 rest  5            1.96
+## 6      3.39      3.25   3.39 2EL   Soul 1           3 view  1            4.32</code></pre>
+<pre class="r"><code># b. Note moyenne par vin et par étape, puis format large dans l&#39;ordre imposé
+wines_large &lt;- wines_long %&gt;%
+  group_by(Wines, Soul, Global, etape) %&gt;%
+  summarise(note_moy = mean(note, na.rm = TRUE), .groups = &quot;drop&quot;) %&gt;%
+  pivot_wider(
+    names_from = etape,
+    values_from = note_moy
+  ) %&gt;%
+  select(Wines, Soul, rest, view, shaking, tasting, Global)
+
+wines_large</code></pre>
+<pre><code>## # A tibble: 21 × 7
+##    Wines Soul       rest  view shaking tasting Global
+##    &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+##  1 1BEN  Reference  2.6   3.49    2.65    2.84   3.75
+##  2 1BOI  Reference  2.71  3.77    2.77    2.98   3.71
+##  3 1CHA  Soul 1     2.42  3.01    2.52    2.58   3.21
+##  4 1DAM  Reference  2.88  3.94    2.82    3.02   3.74
+##  5 1FON  Soul 1     2.48  3.31    2.54    2.72   3.54
+##  6 1ING  Soul 1     2.65  3.81    2.71    2.88   3.64
+##  7 1POY  Reference  2.57  4.23    2.71    3.02   3.93
+##  8 1ROC  Soul 2     2.52  3.42    2.64    2.73   3.46
+##  9 1TUR  Soul 2     2.40  3.41    2.58    2.66   3.18
+## 10 1VAU  Soul 2     2.38  2.74    2.41    2.34   2.46
+## # ℹ 11 more rows</code></pre>
+<pre class="r"><code># c. Les 3 meilleurs vins à l&#39;étape tasting et leur type de sol
+top3_vins &lt;- wines_large %&gt;%
+  arrange(desc(tasting)) %&gt;%
+  slice(1:3) %&gt;%
+  select(Wines, Soul, tasting)
+
+top3_vins</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   Wines Soul      tasting
+##   &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt;
+## 1 1DAM  Reference    3.02
+## 2 1POY  Reference    3.02
+## 3 1BOI  Reference    2.98</code></pre>
+<pre class="r"><code># d. Corrélation entre la note Global et la moyenne à l&#39;étape tasting
+cor_tasting_global &lt;- cor(wines_large$Global, wines_large$tasting, use = &quot;complete.obs&quot;)
+cor_tasting_global</code></pre>
+<pre><code>## [1] 0.8404885</code></pre>
+<ul>
+<li><strong>a &amp; b.</strong> Les 27 colonnes de descripteurs
+sensoriels ont été décomposées en <code>etape</code> et
+<code>descripteur</code>, puis agrégées et réordonnées dans
+<code>wines_large</code> (<code>rest</code>, <code>view</code>,
+<code>shaking</code>, <code>tasting</code>).</li>
+<li><strong>c.</strong> Les 3 meilleurs vins à l’étape
+<code>tasting</code> sont :
+<ol style="list-style-type: decimal">
+<li><strong>1DAM</strong> (sol : <em>Reference</em>, moyenne :
+<strong>3.02</strong>) ;</li>
+<li><strong>1POY</strong> (sol : <em>Reference</em>, moyenne :
+<strong>3.02</strong>) ;</li>
+<li><strong>1BOI</strong> (sol : <em>Reference</em>, moyenne :
+<strong>2.98</strong>).</li>
+</ol></li>
+<li><strong>d.</strong> Le coefficient de corrélation linéaire de
+Pearson entre la note <code>Global</code> et la moyenne à l’étape
+<code>tasting</code> s’élève à <strong>0.84</strong>, ce qui traduit une
+liaison positive très forte entre l’appréciation en bouche et
+l’évaluation globale du vin.</li>
+</ul>
+</div>
 </div>
 
 
