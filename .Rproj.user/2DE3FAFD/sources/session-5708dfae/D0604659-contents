@@ -178,3 +178,36 @@ jours_froids
 - **a.** Le tableau `bilan_meteo` synthétise les moyennes de températures, les cumuls de précipitations et les nombres de jours de gel et de pluie pour chaque station.
 - **b.** La station ayant connu le plus grand nombre de jours de gel est **`r paste(station_gel$station, collapse = " et ")`** (**`r station_gel$jours_gel[1]` jours**), et celle ayant reçu le plus de pluie est **`r station_pluie$station[1]`** (**`r station_pluie$cumul_pluie[1]` mm**).
 - **c.** Le tableau `jours_froids` précise pour chaque station la date et la valeur de la température minimale absolue relevée en janvier 2026.
+
+## A5
+
+**Diagnostic avant exécution :**
+1. `p1 <- read.csv("data/prix_fr.csv")` : `read.csv()` attend par défaut un séparateur virgule (`,`) et un point décimal (`.`). Sur un fichier français (séparateur `;` et virgule décimale `,`), toutes les colonnes sont fusionnées en une seule colonne texte illisible (et la ligne de commentaire éventuelle n'est pas sautée).
+2. `p2 <- read.csv2("data/prix_fr.csv")` : `read.csv2()` gère bien `;` et `,`, mais s'il existe une ligne de titre/commentaire en haut du fichier ou des codes de valeurs manquantes spécifiques (comme `"n/a"`), l'en-tête est décalé et les colonnes numériques basculent en texte (`character`).
+3. `p3 <- read_csv2("data/prix_fr.csv", na = "n/a", skip = 1)` : `read_csv2()` (du package `readr`) lit par défaut en **UTF-8**. Si le fichier français est encodé en **Latin-1** (`ISO-8859-1`), les caractères accentués seront corrompus (`<e9>` ou ``) sans préciser `locale = locale(encoding = "latin1")`.
+
+```{r A5}
+# Inspection brute du fichier prix_fr.csv
+read_lines("data/prix_fr.csv", n_max = 5)
+
+# Exécution des trois instructions erronées pour vérification
+p1 <- read.csv("data/prix_fr.csv")
+p2 <- read.csv2("data/prix_fr.csv")
+p3 <- read_csv2("data/prix_fr.csv", na = "n/a", skip = 1)
+
+glimpse(p1)
+glimpse(p2)
+glimpse(p3)
+
+# Correction propre avec read_csv2 et gestion de l'encodage
+prix_propre <- read_csv2(
+  "data/prix_fr.csv",
+  skip = 1,
+  na = c("", "NA", "n/a"),
+  locale = locale(encoding = "latin1")
+)
+
+prix_propre
+```
+
+- En ajoutant `locale = locale(encoding = "latin1")` à `read_csv2()` (avec `skip = 1` et `na = "n/a"`), les accents, les séparateurs `;`, les décimales `,` et les valeurs manquantes sont tous correctement interprétés.

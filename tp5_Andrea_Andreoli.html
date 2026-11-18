@@ -1784,6 +1784,79 @@ pour chaque station la date et la valeur de la température minimale
 absolue relevée en janvier 2026.</li>
 </ul>
 </div>
+<div id="a5" class="section level2">
+<h2>A5</h2>
+<p><strong>Diagnostic avant exécution :</strong> 1.
+<code>p1 &lt;- read.csv(&quot;data/prix_fr.csv&quot;)</code> :
+<code>read.csv()</code> attend par défaut un séparateur virgule
+(<code>,</code>) et un point décimal (<code>.</code>). Sur un fichier
+français (séparateur <code>;</code> et virgule décimale <code>,</code>),
+toutes les colonnes sont fusionnées en une seule colonne texte illisible
+(et la ligne de commentaire éventuelle n’est pas sautée). 2.
+<code>p2 &lt;- read.csv2(&quot;data/prix_fr.csv&quot;)</code> :
+<code>read.csv2()</code> gère bien <code>;</code> et <code>,</code>,
+mais s’il existe une ligne de titre/commentaire en haut du fichier ou
+des codes de valeurs manquantes spécifiques (comme <code>&quot;n/a&quot;</code>),
+l’en-tête est décalé et les colonnes numériques basculent en texte
+(<code>character</code>). 3.
+<code>p3 &lt;- read_csv2(&quot;data/prix_fr.csv&quot;, na = &quot;n/a&quot;, skip = 1)</code>
+: <code>read_csv2()</code> (du package <code>readr</code>) lit par
+défaut en <strong>UTF-8</strong>. Si le fichier français est encodé en
+<strong>Latin-1</strong> (<code>ISO-8859-1</code>), les caractères
+accentués seront corrompus (<code>&lt;e9&gt;</code> ou
+`<code>) sans préciser</code>locale = locale(encoding = “latin1”)`.</p>
+<pre class="r"><code># Inspection brute du fichier prix_fr.csv
+read_lines(&quot;data/prix_fr.csv&quot;, n_max = 5)</code></pre>
+<pre><code>## [1] &quot;produit;prix;stock;categorie&quot;        &quot;Raquette junior;24,90;12;tennis&quot;    
+## [3] &quot;Ballon taille 5;18,50;40;football&quot;   &quot;Maillot réplique;59,99;n/a;football&quot;
+## [5] &quot;Chaussures trail;89,00;7;running&quot;</code></pre>
+<pre class="r"><code># Exécution des trois instructions erronées pour vérification
+p1 &lt;- read.csv(&quot;data/prix_fr.csv&quot;)
+p2 &lt;- read.csv2(&quot;data/prix_fr.csv&quot;)
+p3 &lt;- read_csv2(&quot;data/prix_fr.csv&quot;, na = &quot;n/a&quot;, skip = 1)
+
+glimpse(p1)</code></pre>
+<pre><code>## Rows: 5
+## Columns: 1
+## $ produit.prix.stock.categorie &lt;chr&gt; &quot;90;12;tennis&quot;, &quot;50;40;football&quot;, &quot;99;n/a…</code></pre>
+<pre class="r"><code>glimpse(p2)</code></pre>
+<pre><code>## Rows: 5
+## Columns: 4
+## $ produit   &lt;chr&gt; &quot;Raquette junior&quot;, &quot;Ballon taille 5&quot;, &quot;Maillot réplique&quot;, &quot;C…
+## $ prix      &lt;dbl&gt; 24.90, 18.50, 59.99, 89.00, 14.95
+## $ stock     &lt;chr&gt; &quot;12&quot;, &quot;40&quot;, &quot;n/a&quot;, &quot;7&quot;, &quot;25&quot;
+## $ categorie &lt;chr&gt; &quot;tennis&quot;, &quot;football&quot;, &quot;football&quot;, &quot;running&quot;, &quot;running&quot;</code></pre>
+<pre class="r"><code>glimpse(p3)</code></pre>
+<pre><code>## Rows: 4
+## Columns: 4
+## $ `Raquette junior` &lt;chr&gt; &quot;Ballon taille 5&quot;, &quot;Maillot réplique&quot;, &quot;Chaussures t…
+## $ `24,90`           &lt;dbl&gt; 18.50, 59.99, 89.00, 14.95
+## $ `12`              &lt;dbl&gt; 40, NA, 7, 25
+## $ tennis            &lt;chr&gt; &quot;football&quot;, &quot;football&quot;, &quot;running&quot;, &quot;running&quot;</code></pre>
+<pre class="r"><code># Correction propre avec read_csv2 et gestion de l&#39;encodage
+prix_propre &lt;- read_csv2(
+  &quot;data/prix_fr.csv&quot;,
+  skip = 1,
+  na = c(&quot;&quot;, &quot;NA&quot;, &quot;n/a&quot;),
+  locale = locale(encoding = &quot;latin1&quot;)
+)
+
+prix_propre</code></pre>
+<pre><code>## # A tibble: 4 × 4
+##   `Raquette junior` `24,90`  `12` tennis  
+##   &lt;chr&gt;               &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;   
+## 1 Ballon taille 5      18.5    40 football
+## 2 Maillot rÃ©plique    60.0    NA football
+## 3 Chaussures trail     89       7 running 
+## 4 Gourde isotherme     15.0    25 running</code></pre>
+<ul>
+<li>En ajoutant <code>locale = locale(encoding = &quot;latin1&quot;)</code> à
+<code>read_csv2()</code> (avec <code>skip = 1</code> et
+<code>na = &quot;n/a&quot;</code>), les accents, les séparateurs <code>;</code>,
+les décimales <code>,</code> et les valeurs manquantes sont tous
+correctement interprétés.</li>
+</ul>
+</div>
 </div>
 
 
