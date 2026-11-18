@@ -2266,6 +2266,97 @@ Pearson entre la note <code>Global</code> et la moyenne à l’étape
 liaison positive très forte entre l’appréciation en bouche et
 l’évaluation globale du vin.</li>
 </ul>
+<hr />
+</div>
+</div>
+<div id="partie-d-nettoyer-un-fichier-rh-et-joindre-des-tables" class="section level1">
+<h1>Partie D : Nettoyer un fichier RH et joindre des tables</h1>
+<div id="d1" class="section level2">
+<h2>D1</h2>
+<pre class="r"><code># Importation brute avec read_csv()
+emp &lt;- read_csv(&quot;data/employee.csv&quot;)
+glimpse(emp)</code></pre>
+<pre><code>## Rows: 235
+## Columns: 9
+## $ Employee_ID &lt;dbl&gt; 120101, 120104, 120105, 120106, 120107, 120108, 120108, 12…
+## $ First       &lt;chr&gt; &quot;Patrick&quot;, &quot;Kareen&quot;, &quot;Liz&quot;, &quot;John&quot;, &quot;Sherie&quot;, &quot;Gladys&quot;, &quot;G…
+## $ Last        &lt;chr&gt; &quot;Lu&quot;, &quot;Billington&quot;, &quot;Povey&quot;, &quot;Hornsey&quot;, &quot;Sheedy&quot;, &quot;Gromek&quot;…
+## $ Gender      &lt;chr&gt; &quot;M&quot;, &quot;F&quot;, &quot;F&quot;, &quot;M&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;M&quot;, &quot;M&quot;, &quot;F&quot;, &quot;F&quot;, &quot;G&quot;…
+## $ Salary      &lt;dbl&gt; 163040, 46230, 27110, NA, 30475, 27660, 26495, 28615, 2689…
+## $ Job_Title   &lt;chr&gt; &quot;Director&quot;, &quot;Administration Manager&quot;, &quot;Secretary I&quot;, &quot;Offi…
+## $ Country     &lt;chr&gt; &quot;AU&quot;, &quot;au&quot;, &quot;AU&quot;, &quot;AU&quot;, &quot;AU&quot;, &quot;AU&quot;, &quot;AU&quot;, &quot;AU&quot;, &quot;AU&quot;, &quot;AU&quot;…
+## $ Birth_Date  &lt;chr&gt; &quot;18/08/1976&quot;, &quot;11/05/1954&quot;, &quot;21/12/1974&quot;, &quot;23/12/1944&quot;, &quot;0…
+## $ Hire_Date   &lt;chr&gt; &quot;01/07/2003&quot;, &quot;01/01/1981&quot;, &quot;01/05/1999&quot;, &quot;01/01/1974&quot;, &quot;2…</code></pre>
+<pre class="r"><code># 1. Valeurs manquantes par colonne
+colSums(is.na(emp))</code></pre>
+<pre><code>## Employee_ID       First        Last      Gender      Salary   Job_Title 
+##           1           0           0           1           1           1 
+##     Country  Birth_Date   Hire_Date 
+##           0           0           1</code></pre>
+<pre class="r"><code># 2. Doublons sur les lignes complètes ou sur Employee_ID
+nb_doublons_lignes &lt;- sum(duplicated(emp))
+nb_doublons_id &lt;- sum(duplicated(emp$Employee_ID, incomparables = NA))
+
+# 3. Codes incohérents sur Country et Gender
+table(emp$Country, useNA = &quot;ifany&quot;)</code></pre>
+<pre><code>## 
+##  au  AU  us  US 
+##   3  33   3 196</code></pre>
+<pre class="r"><code>table(emp$Gender, useNA = &quot;ifany&quot;)</code></pre>
+<pre><code>## 
+##    F    G    M &lt;NA&gt; 
+##  110    1  123    1</code></pre>
+<pre class="r"><code># 4. Valeurs aberrantes sur Salary (&lt; 10 000)
+nb_sal_aberrants &lt;- sum(emp$Salary &lt; 10000, na.rm = TRUE)
+
+# 5. Dates impossibles (avant 1974, année de fondation de l&#39;entreprise)
+# Aperçu du format des dates avant conversion
+head(emp$Birth_Date)</code></pre>
+<pre><code>## [1] &quot;18/08/1976&quot; &quot;11/05/1954&quot; &quot;21/12/1974&quot; &quot;23/12/1944&quot; &quot;01/02/1978&quot;
+## [6] &quot;23/02/1984&quot;</code></pre>
+<pre class="r"><code>head(emp$Hire_Date)</code></pre>
+<pre><code>## [1] &quot;01/07/2003&quot; &quot;01/01/1981&quot; &quot;01/05/1999&quot; &quot;01/01/1974&quot; &quot;21/01/1953&quot;
+## [6] &quot;01/08/2006&quot;</code></pre>
+<pre class="r"><code>hire_test &lt;- as.Date(emp$Hire_Date, format = &quot;%d/%m/%Y&quot;)
+if (all(is.na(hire_test))) hire_test &lt;- as.Date(emp$Hire_Date) # Secours si format ISO YYYY-MM-DD
+nb_hire_avant_1974 &lt;- sum(year(hire_test) &lt; 1974, na.rm = TRUE)
+
+c(
+  Doublons_lignes = nb_doublons_lignes,
+  Doublons_ID = nb_doublons_id,
+  ID_manquant = sum(is.na(emp$Employee_ID)),
+  Country_minuscule = sum(emp$Country != toupper(emp$Country), na.rm = TRUE),
+  Gender_invalide = sum(!emp$Gender %in% c(&quot;F&quot;, &quot;M&quot;) &amp; !is.na(emp$Gender)),
+  Salaire_inf_10k = nb_sal_aberrants,
+  Embauche_avant_1974 = nb_hire_avant_1974
+)</code></pre>
+<pre><code>##     Doublons_lignes         Doublons_ID         ID_manquant   Country_minuscule 
+##                   0                   1                   1                   6 
+##     Gender_invalide     Salaire_inf_10k Embauche_avant_1974 
+##                   1                   2                   2</code></pre>
+<ul>
+<li>L’audit du fichier <code>employee.csv</code> (235 lignes) met en
+évidence les anomalies suivantes :
+<ul>
+<li><strong>Identifiants (<code>Employee_ID</code>) :</strong> <strong>1
+valeur manquante</strong> et <strong>1 doublon(s)</strong> (et 0
+ligne(s) entièrement dupliquée(s)).</li>
+<li><strong>Pays (<code>Country</code>) :</strong> <strong>6
+ligne(s)</strong> avec des codes pays en minuscules ou casse mixte (ex.
+<code>&quot;us&quot;</code>, <code>&quot;au&quot;</code> au lieu de <code>&quot;US&quot;</code>,
+<code>&quot;AU&quot;</code>).</li>
+<li><strong>Sexe (<code>Gender</code>) :</strong> <strong>1
+ligne(s)</strong> contenant un code invalide autre que <code>&quot;F&quot;</code>
+ou <code>&quot;M&quot;</code>, ainsi que 1 <code>NA</code>.</li>
+<li><strong>Salaire (<code>Salary</code>) :</strong> <strong>2
+ligne(s)</strong> avec un salaire anormalement bas (<span class="math inline">\(&lt; 10\,000\)</span>, erreur d’un facteur
+10).</li>
+<li><strong>Dates (<code>Birth_Date</code> et <code>Hire_Date</code>)
+:</strong> importées en texte (<code>character</code>), avec <strong>2
+date(s) d’embauche antérieure(s) à 1974</strong> (impossible puisque
+l’enseigne a été fondée en 1974).</li>
+</ul></li>
+</ul>
 </div>
 </div>
 

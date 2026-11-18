@@ -481,3 +481,56 @@ cor_tasting_global
   2. **`r top3_vins$Wines[2]`** (sol : *`r top3_vins$Soul[2]`*, moyenne : **`r round(top3_vins$tasting[2], 2)`**) ;
   3. **`r top3_vins$Wines[3]`** (sol : *`r top3_vins$Soul[3]`*, moyenne : **`r round(top3_vins$tasting[3], 2)`**).
 - **d.** Le coefficient de corrélation linéaire de Pearson entre la note `Global` et la moyenne à l'étape `tasting` s'élève à **`r round(cor_tasting_global, 3)`**, ce qui traduit une liaison positive très forte entre l'appréciation en bouche et l'évaluation globale du vin.
+
+
+---
+
+# Partie D : Nettoyer un fichier RH et joindre des tables
+
+## D1
+
+```{r D1}
+# Importation brute avec read_csv()
+emp <- read_csv("data/employee.csv")
+glimpse(emp)
+
+# 1. Valeurs manquantes par colonne
+colSums(is.na(emp))
+
+# 2. Doublons sur les lignes complètes ou sur Employee_ID
+nb_doublons_lignes <- sum(duplicated(emp))
+nb_doublons_id <- sum(duplicated(emp$Employee_ID, incomparables = NA))
+
+# 3. Codes incohérents sur Country et Gender
+table(emp$Country, useNA = "ifany")
+table(emp$Gender, useNA = "ifany")
+
+# 4. Valeurs aberrantes sur Salary (< 10 000)
+nb_sal_aberrants <- sum(emp$Salary < 10000, na.rm = TRUE)
+
+# 5. Dates impossibles (avant 1974, année de fondation de l'entreprise)
+# Aperçu du format des dates avant conversion
+head(emp$Birth_Date)
+head(emp$Hire_Date)
+
+hire_test <- as.Date(emp$Hire_Date, format = "%d/%m/%Y")
+if (all(is.na(hire_test))) hire_test <- as.Date(emp$Hire_Date) # Secours si format ISO YYYY-MM-DD
+nb_hire_avant_1974 <- sum(year(hire_test) < 1974, na.rm = TRUE)
+
+c(
+  Doublons_lignes = nb_doublons_lignes,
+  Doublons_ID = nb_doublons_id,
+  ID_manquant = sum(is.na(emp$Employee_ID)),
+  Country_minuscule = sum(emp$Country != toupper(emp$Country), na.rm = TRUE),
+  Gender_invalide = sum(!emp$Gender %in% c("F", "M") & !is.na(emp$Gender)),
+  Salaire_inf_10k = nb_sal_aberrants,
+  Embauche_avant_1974 = nb_hire_avant_1974
+)
+```
+
+- L'audit du fichier `employee.csv` (`r nrow(emp)` lignes) met en évidence les anomalies suivantes :
+  - **Identifiants (`Employee_ID`) :** **`r sum(is.na(emp$Employee_ID))` valeur manquante** et **`r nb_doublons_id` doublon(s)** (et `r nb_doublons_lignes` ligne(s) entièrement dupliquée(s)).
+  - **Pays (`Country`) :** **`r sum(emp$Country != toupper(emp$Country), na.rm = TRUE)` ligne(s)** avec des codes pays en minuscules ou casse mixte (ex. `"us"`, `"au"` au lieu de `"US"`, `"AU"`).
+  - **Sexe (`Gender`) :** **`r sum(!emp$Gender %in% c("F", "M") & !is.na(emp$Gender))` ligne(s)** contenant un code invalide autre que `"F"` ou `"M"`, ainsi que `r sum(is.na(emp$Gender))` `NA`.
+  - **Salaire (`Salary`) :** **`r nb_sal_aberrants` ligne(s)** avec un salaire anormalement bas ($< 10\,000$, erreur d'un facteur 10).
+  - **Dates (`Birth_Date` et `Hire_Date`) :** importées en texte (`character`), avec **`r nb_hire_avant_1974` date(s) d'embauche antérieure(s) à 1974** (impossible puisque l'enseigne a été fondée en 1974).
